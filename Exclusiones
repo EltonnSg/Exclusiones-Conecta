@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Eventos por servicio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f1ea;
+    --panel:#ffffff;
+    --line:#e2ddd0;
+    --ink:#1c1a16;
+    --ink-soft:#6b6558;
+    --accent:#0f6e56;
+    --accent-soft:#e1f5ee;
+    --si:#0f6e56;
+    --no:#888780;
+    --si-bg:#e1f5ee;
+    --no-bg:#f1efe8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+  h1{
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .sub{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 20px;
+  }
+  .upload{
+    background:var(--panel);
+    border:1.5px dashed var(--line);
+    border-radius:10px;
+    padding:24px;
+    text-align:center;
+    margin-bottom:24px;
+  }
+  .upload.drag{border-color:var(--accent);background:var(--accent-soft);}
+  .upload p{margin:0 0 12px;font-size:14px;color:var(--ink-soft);}
+  .upload input[type=file]{display:none;}
+  .upload label{
+    display:inline-block;
+    background:var(--accent);
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    padding:9px 18px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .upload .filename{
+    margin-top:10px;
+    font-size:13px;
+    color:var(--ink);
+    font-family:monospace;
+  }
+  .error{
+    background:#faece7;
+    color:#993c1d;
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:13px;
+    margin-bottom:20px;
+    display:none;
+  }
+  .layout{display:none;flex-direction:column;gap:20px;}
+  .layout.show{display:flex;}
+  .list-header{
+    font-size:12px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    display:flex;
+    justify-content:space-between;
+  }
+  .items{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+    gap:8px;
+  }
+  .item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:10px 6px;
+    cursor:pointer;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:13px;
+    text-align:center;
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .item:hover{background:#faf8f3;border-color:#d4cdba;}
+  .item.active{background:var(--accent);border-color:var(--accent);}
+  .item .label{font-weight:600;font-variant-numeric:tabular-nums;}
+  .item.active .label{color:#ffffff;}
+  .item .count{
+    font-size:11px;
+    color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;
+  }
+  .item.active .count{color:var(--accent-soft);}
+  .detail{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 24px;
+    min-height:300px;
+  }
+  .detail-empty{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:260px;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+  .detail-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:4px;
+  }
+  .detail-head h2{
+    font-size:20px;
+    font-weight:600;
+    margin:0;
+  }
+  .detail-head .orig{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-family:monospace;
+  }
+  .detail-count{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 18px;
+  }
+  .detail-count b{color:var(--ink);}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--ink-soft);
+    font-weight:600;
+    padding:0 10px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  td{
+    padding:9px 10px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tr:last-child td{border-bottom:none;}
+  .pill{
+    display:inline-block;
+    font-size:11px;
+    font-weight:600;
+    padding:2px 8px;
+    border-radius:20px;
+  }
+  .pill.si{background:var(--si-bg);color:var(--si);}
+  .pill.no{background:var(--no-bg);color:var(--no);}
+  .pill.periodo-noche-madrugada{background:#e6e5f4;color:#4a3aa7;}
+  .pill.periodo-am{background:#faeeda;color:#854f0b;}
+  .pill.periodo-md{background:#eaf3de;color:#3b6d11;}
+  .pill.periodo-pt{background:#faece7;color:#993c1d;}
+  .pill.periodo-noche{background:#e1e0e0;color:#2c2c2a;}
+  .hora{font-variant-numeric:tabular-nums;font-weight:600;}
+  .fecha{color:var(--ink-soft);font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Eventos por servicio</h1>
+  <p class="sub">Selecciona el archivo Eventos.Complejos (.xls o .xlsx) para generar el reporte. Todo se procesa en tu navegador, el archivo no se sube a ningún servidor.</p>
+
+  <div class="upload" id="uploadZone">
+    <p>Arrastra aquí el archivo o</p>
+    <label for="fileInput">Buscar archivo excel</label>
+    <input type="file" id="fileInput" accept=".xls,.xlsx">
+    <div class="filename" id="filename"></div>
+  </div>
+
+  <div class="error" id="errorBox"></div>
+
+  <div class="layout" id="layout">
+    <div>
+      <div class="list-header"><span>Servicios</span><span id="totalCount"></span></div>
+      <div class="items" id="items"></div>
+    </div>
+    <div class="detail" id="detail">
+      <div class="detail-empty">Elige un servicio del cuadro</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Mapeo de código de usuario ---------- */
+const BASE_MAP = {
+  '1803':'203','1806':'206','1808':'208','1812':'212','1816':'216','1819':'219',
+  '1821':'321','1823':'G23','1829':'229','1831':'G31','1832':'H12','1833':'H13',
+  '1836':'306','1841':'301','1844':'244','1845':'345','1846':'346','1847':'H07',
+  '1848':'H08','1871':'271'
+};
+const SERVICIO_RE = /^T?(\d{4})\s*([A-Z]\d?)?([IR])$/;
+
+function mapServicio(raw){
+  const s = String(raw).trim();
+  const m = SERVICIO_RE.exec(s);
+  if (!m) return { label: s, matched: false };
+  const [, digitos, variante, direccion] = m;
+  const base = BASE_MAP[digitos] || digitos;
+  const sufijo = variante ? variante[0].toLowerCase() : '';
+  return { label: `${base}${sufijo}${direccion}`, matched: true };
+}
+
+/* ---------- Periodos de exclusión ---------- */
+const PERIODOS = [
+  { label: 'Noche madrugada', from: 0,    to: 240  },
+  { label: 'AM',              from: 240,  to: 540  },
+  { label: 'MD',              from: 540,  to: 960  },
+  { label: 'PT',              from: 960,  to: 1200 },
+  { label: 'Noche',           from: 1200, to: 1440 }
+];
+function segmentoDe(mod){
+  return PERIODOS.find(p => mod >= p.from && mod < p.to) || PERIODOS[PERIODOS.length - 1];
+}
+function periodosDelEvento(inicioDate, terminoDate){
+  const inicioMinDia = inicioDate.getHours() * 60 + inicioDate.getMinutes();
+  let duracionMin = Math.round((terminoDate - inicioDate) / 60000);
+  if (duracionMin <= 0) duracionMin = 1;
+
+  const orden = [];
+  const minutosPorPeriodo = {};
+  let cursor = inicioMinDia;
+  const fin = inicioMinDia + duracionMin;
+  let guard = 0;
+  while (cursor < fin && guard < 10) {
+    const mod = ((cursor % 1440) + 1440) % 1440;
+    const seg = segmentoDe(mod);
+    const avance = Math.min(seg.to - mod, fin - cursor);
+    if (!(seg.label in minutosPorPeriodo)) {
+      minutosPorPeriodo[seg.label] = 0;
+      orden.push(seg.label);
+    }
+    minutosPorPeriodo[seg.label] += avance;
+    cursor += avance > 0 ? avance : 1440;
+    guard++;
+  }
+  return orden.map(label => ({ label, minutos: minutosPorPeriodo[label] }));
+}
+function formatoMin(mins){
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+function periodoClass(periodo){
+  return periodo.replace(/\s+/g, '-').toLowerCase();
+}
+function pad(n){ return String(n).padStart(2, '0'); }
+function fmtFecha(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtHora(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+/* ---------- Lectura del Excel ---------- */
+const fileInput = document.getElementById('fileInput');
+const uploadZone = document.getElementById('uploadZone');
+const filenameEl = document.getElementById('filename');
+const errorBox = document.getElementById('errorBox');
+const layout = document.getElementById('layout');
+const itemsEl = document.getElementById('items');
+const detailEl = document.getElementById('detail');
+const totalCountEl = document.getElementById('totalCount');
+
+let DATA = [];
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+['dragover','dragenter'].forEach(evt => uploadZone.addEventListener(evt, e => {
+  e.preventDefault(); uploadZone.classList.add('drag');
+}));
+['dragleave','drop'].forEach(evt => uploadZone.addEventListener(evt, e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+}));
+uploadZone.addEventListener('drop', e => {
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function showError(msg){
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+}
+function hideError(){
+  errorBox.style.display = 'none';
+}
+
+function handleFile(file){
+  hideError();
+  filenameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+      procesarLibro(wb);
+    } catch (err) {
+      showError('No se pudo leer el archivo: ' + err.message);
+    }
+  };
+  reader.onerror = () => showError('No se pudo abrir el archivo.');
+  reader.readAsArrayBuffer(file);
+}
+
+function procesarLibro(wb){
+  const sheetName = wb.SheetNames.find(n => /eventos/i.test(n)) || wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const matriz = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  const headerIdx = matriz.findIndex(row =>
+    row.some(c => String(c).trim().toLowerCase() === 'servicio') &&
+    row.some(c => String(c).trim().toLowerCase() === 'duracion')
+  );
+  if (headerIdx === -1) {
+    showError('No se encontró la fila de encabezados (se busca "Duracion" y "Servicio"). Revisa el archivo.');
+    return;
+  }
+
+  const headers = matriz[headerIdx].map(h => String(h).trim());
+  const col = name => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+  const idx = {
+    duracion: col('Duracion'),
+    inicio: col('Fechainicio'),
+    termino: col('Fecha Termino'),
+    servicio: col('Servicio'),
+    motivo: col('Motivo'),
+    triada: col('Afecta triada')
+  };
+  if (idx.servicio === -1 || idx.inicio === -1) {
+    showError('Faltan columnas esperadas (Servicio / Fechainicio) en el archivo.');
+    return;
+  }
+
+  const porServicio = {};
+  for (let i = headerIdx + 1; i < matriz.length; i++) {
+    const row = matriz[i];
+    const servicioRaw = row[idx.servicio];
+    if (!servicioRaw || String(servicioRaw).trim() === '') continue;
+
+    const inicioRaw = row[idx.inicio];
+    const terminoRaw = idx.termino !== -1 ? row[idx.termino] : null;
+    const inicio = inicioRaw instanceof Date ? inicioRaw : new Date(inicioRaw);
+    if (isNaN(inicio)) continue;
+    let termino = terminoRaw instanceof Date ? terminoRaw : (terminoRaw ? new Date(terminoRaw) : null);
+    const duracionHoras = idx.duracion !== -1 ? Number(row[idx.duracion]) : null;
+    if (!termino || isNaN(termino)) {
+      termino = duracionHoras ? new Date(inicio.getTime() + duracionHoras * 3600000) : inicio;
+    }
+
+    const servicioTrim = String(servicioRaw).trim();
+    const mapeo = mapServicio(servicioTrim);
+
+    if (!porServicio[servicioTrim]) {
+      porServicio[servicioTrim] = { original: servicioTrim, label: mapeo.label, events: [] };
+    }
+    porServicio[servicioTrim].events.push({
+      inicio, termino,
+      duracion: duracionHoras != null && !isNaN(duracionHoras) ? duracionHoras : (termino - inicio) / 3600000,
+      motivo: idx.motivo !== -1 ? String(row[idx.motivo] || '') : '',
+      triada: idx.triada !== -1 ? String(row[idx.triada] || '') : ''
+    });
+  }
+
+  DATA = Object.values(porServicio)
+    .map(s => ({ ...s, count: s.events.length, events: s.events.sort((a,b) => a.inicio - b.inicio) }))
+    .sort((a, b) => b.count - a.count);
+
+  if (DATA.length === 0) {
+    showError('No se encontraron filas de datos válidas en el archivo.');
+    return;
+  }
+
+  totalCountEl.textContent = `${DATA.reduce((sum,s)=>sum+s.count,0)} eventos totales`;
+  layout.classList.add('show');
+  renderList();
+  detailEl.innerHTML = '<div class="detail-empty">Elige un servicio del cuadro</div>';
+}
+
+/* ---------- Render ---------- */
+function renderList(){
+  itemsEl.innerHTML = '';
+  DATA.forEach((s, idx) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.dataset.idx = idx;
+    div.innerHTML = `<span class="label">${s.label}</span><span class="count">${s.count} ${s.count === 1 ? 'vez' : 'veces'}</span>`;
+    div.addEventListener('click', () => selectService(idx));
+    itemsEl.appendChild(div);
+  });
+}
+
+function selectService(idx){
+  document.querySelectorAll('.item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.item[data-idx="${idx}"]`).classList.add('active');
+
+  const s = DATA[idx];
+  const rows = s.events.map(e => {
+    const fecha = fmtFecha(e.inicio);
+    const hora = fmtHora(e.inicio);
+    const horaTermino = fmtHora(e.termino);
+    const pillClass = /^s/i.test(e.triada) ? 'si' : 'no';
+    const horas = Math.floor(e.duracion);
+    const minutos = Math.round((e.duracion - horas) * 60);
+    const excluido = minutos > 0 ? `${horas}h ${minutos}min` : `${horas}h`;
+    const periodos = periodosDelEvento(e.inicio, e.termino);
+    const periodoHtml = periodos
+      .map(p => `<span class="pill periodo-${periodoClass(p.label)}">${p.label} · ${formatoMin(p.minutos)}</span>`)
+      .join(' - ');
+    return `<tr>
+      <td class="fecha">${fecha}</td>
+      <td class="hora">${hora}</td>
+      <td class="hora">${horaTermino}</td>
+      <td class="hora">${excluido}</td>
+      <td>${e.motivo}</td>
+      <td><span class="pill ${pillClass}">Triada ${e.triada}</span></td>
+      <td>${periodoHtml}</td>
+    </tr>`;
+  }).join('');
+
+  detailEl.innerHTML = `
+    <div class="detail-head">
+      <h2>${s.label}</h2>
+      <span class="orig">${s.original}</span>
+    </div>
+    <p class="detail-count">Aparece <b>${s.count}</b> ${s.count === 1 ? 'vez' : 'veces'} en el registro</p>
+    <table>
+      <thead><tr><th>Fecha</th><th>Hora inicio</th><th>Hora término</th><th>Tiempo excluido</th><th>Motivo</th><th>Triada</th><th>Periodo de exclusión</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+</script>
+</body>
+</html>
